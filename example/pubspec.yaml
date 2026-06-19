@@ -1,5 +1,5 @@
-name: spotify_app_remote_example
-description: "Demonstrates how to use the spotify_app_remote plugin."
+name: flutter_spotify_remote_example
+description: "Demonstrates how to use the flutter_spotify_remote plugin."
 publish_to: 'none'
 
 environment:
@@ -9,7 +9,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  spotify_app_remote:
+  flutter_spotify_remote:
     path: ../
 
   shared_preferences: ^2.3.0

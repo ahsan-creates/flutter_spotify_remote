@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:spotify_app_remote/spotify_app_remote.dart';
+import 'package:flutter_spotify_remote/flutter_spotify_remote.dart';
 
 // ── Replace these with your Spotify developer app credentials ─────────────
 const _clientId    = 'YOUR_CLIENT_ID';
@@ -34,7 +34,7 @@ class SpotifyHomePage extends StatefulWidget {
 }
 
 class _SpotifyHomePageState extends State<SpotifyHomePage> {
-  final _spotify = SpotifyAppRemote.instance;
+  final _spotify = FlutterSpotifyRemote.instance;
 
   StreamSubscription<SpotifyEvent>? _eventSub;
   SpotifyPlayerState? _playerState;
@@ -86,15 +86,13 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
     final prefs     = await SharedPreferences.getInstance();
     final token     = prefs.getString('spotify_token');
     final expiresAt = prefs.getInt('spotify_token_expires') ?? 0;
-    final isValid   = token != null &&
-        DateTime.now().millisecondsSinceEpoch < expiresAt;
 
-    if (isValid) {
+    if (token != null && DateTime.now().millisecondsSinceEpoch < expiresAt) {
       try {
         await _spotify.connectWithToken(
           clientId:    _clientId,
           redirectUrl: _redirectUrl,
-          accessToken: token!,
+          accessToken: token,
         );
       } on SpotifyAuthException {
         await _connectAndAuthorize();

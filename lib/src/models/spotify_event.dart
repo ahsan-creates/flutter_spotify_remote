@@ -28,7 +28,7 @@ class SpotifyConnectionChangedEvent extends SpotifyEvent {
 /// Fired on iOS after the OAuth app-switch returns a fresh access token.
 ///
 /// Store [accessToken] in `SharedPreferences` and pass it to
-/// [SpotifyAppRemote.connectWithToken] on subsequent launches to avoid
+/// [FlutterSpotifyRemote.connectWithToken] on subsequent launches to avoid
 /// repeating the app-switch.
 class SpotifyAccessTokenEvent extends SpotifyEvent {
   /// The OAuth access token.

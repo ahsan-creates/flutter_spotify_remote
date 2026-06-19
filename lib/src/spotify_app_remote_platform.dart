@@ -3,7 +3,7 @@ import 'models/spotify_event.dart';
 
 /// Abstract interface that platform implementations must satisfy.
 ///
-/// End users interact with [SpotifyAppRemote] instead of this class directly.
+/// End users interact with [FlutterSpotifyRemote] instead of this class directly.
 abstract class SpotifyAppRemotePlatform {
   // ── Auth & Connection ──────────────────────────────────────────────────
 

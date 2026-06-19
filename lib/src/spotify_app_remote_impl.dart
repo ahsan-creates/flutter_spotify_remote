@@ -4,35 +4,35 @@ import 'models/spotify_event.dart';
 
 /// Main entry point for the Spotify App Remote plugin.
 ///
-/// Use [SpotifyAppRemote.instance] to access the singleton.
+/// Use [FlutterSpotifyRemote.instance] to access the singleton.
 ///
 /// ### Typical usage
 /// ```dart
 /// // First launch — triggers the Spotify app-switch for OAuth
-/// await SpotifyAppRemote.instance.connectAndAuthorize(
+/// await FlutterSpotifyRemote.instance.connectAndAuthorize(
 ///   clientId: 'YOUR_CLIENT_ID',
 ///   redirectUrl: 'yourapp://callback',
 /// );
 ///
 /// // Subsequent launches — use the stored token (no app-switch)
-/// await SpotifyAppRemote.instance.connectWithToken(
+/// await FlutterSpotifyRemote.instance.connectWithToken(
 ///   clientId: 'YOUR_CLIENT_ID',
 ///   redirectUrl: 'yourapp://callback',
 ///   accessToken: storedToken,
 /// );
 ///
 /// // Listen for events
-/// SpotifyAppRemote.instance.onEvent.listen((event) {
+/// FlutterSpotifyRemote.instance.onEvent.listen((event) {
 ///   if (event is SpotifyPlayerStateChangedEvent) {
 ///     print(event.playerState.track.name);
 ///   }
 /// });
 /// ```
-class SpotifyAppRemote {
-  SpotifyAppRemote._();
+class FlutterSpotifyRemote {
+  FlutterSpotifyRemote._();
 
   /// The singleton instance.
-  static final SpotifyAppRemote instance = SpotifyAppRemote._();
+  static final FlutterSpotifyRemote instance = FlutterSpotifyRemote._();
 
   final SpotifyAppRemotePlatform _platform = MethodChannelSpotifyAppRemote();
 

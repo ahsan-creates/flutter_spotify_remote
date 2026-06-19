@@ -1,6 +1,6 @@
-# spotify_app_remote
+# flutter_spotify_remote
 
-[![pub.dev](https://img.shields.io/pub/v/spotify_app_remote.svg)](https://pub.dev/packages/spotify_app_remote)
+[![pub.dev](https://img.shields.io/pub/v/flutter_spotify_remote.svg)](https://pub.dev/packages/flutter_spotify_remote)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A Flutter plugin for the **Spotify App Remote SDK**. Control Spotify playback,
@@ -20,10 +20,10 @@ Android — all without bundling any xcframework.
 
 ## Platform support
 
-| Platform | Supported | SDK version            |
-|----------|-----------|------------------------|
-| iOS      | ✅        | SpotifyiOS 5.0.1 (CocoaPods) |
-| Android  | ✅        | Spotify Android App Remote SDK |
+| Platform | Supported | SDK version                          |
+|----------|-----------|--------------------------------------|
+| iOS      | ✅        | SpotifyiOS 5.0.1 (CocoaPods)        |
+| Android  | ✅        | Spotify Android App Remote SDK       |
 
 ---
 
@@ -31,7 +31,7 @@ Android — all without bundling any xcframework.
 
 ```yaml
 dependencies:
-  spotify_app_remote: ^0.0.1
+  flutter_spotify_remote: ^0.0.1
 ```
 
 ---
@@ -119,9 +119,9 @@ dependencies {
 ## Quick start
 
 ```dart
-import 'package:spotify_app_remote/spotify_app_remote.dart';
+import 'package:flutter_spotify_remote/flutter_spotify_remote.dart';
 
-final spotify = SpotifyAppRemote.instance;
+final spotify = FlutterSpotifyRemote.instance;
 
 // Listen for events before connecting
 spotify.onEvent.listen((event) {
@@ -187,7 +187,7 @@ app-switch entirely.
 
 ## API reference
 
-### `SpotifyAppRemote.instance`
+### `FlutterSpotifyRemote.instance`
 
 | Method | Description |
 |--------|-------------|

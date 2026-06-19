@@ -7,6 +7,7 @@ import 'models/spotify_connection_status.dart';
 import 'exceptions/spotify_exceptions.dart';
 
 /// Default [SpotifyAppRemotePlatform] implementation using Flutter method/event channels.
+/// Used internally by [FlutterSpotifyRemote].
 class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
   static const _method = MethodChannel('com.spotifyappremote/method');
   static const _event = EventChannel('com.spotifyappremote/events');

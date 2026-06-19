@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
     Supports playback control and player state subscription.
     Uses CocoaPods for the SpotifyiOS framework — no bundled xcframework.
   DESC
-  s.homepage         = 'https://github.com/YOUR_USERNAME/spotify_app_remote'
+  s.homepage         = 'https://github.com/ahsan-creates/flutter_spotify_remote'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
   s.author           = { 'Your Name' => 'you@example.com' }
   s.source           = { :path => '.' }

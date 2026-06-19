@@ -91,6 +91,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  flutter_spotify_remote:
+    dependency: "direct main"
+    description:
+      path: ".."
+      relative: true
+    source: path
+    version: "0.0.1"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -292,13 +299,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.2"
-  spotify_app_remote:
-    dependency: "direct main"
-    description:
-      path: ".."
-      relative: true
-    source: path
-    version: "0.0.1"
   stack_trace:
     dependency: transitive
     description:

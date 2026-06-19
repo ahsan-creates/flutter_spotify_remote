@@ -2,7 +2,7 @@
 ///
 /// Control Spotify playback, subscribe to player state, and manage
 /// authentication on iOS (SDK v5.0.1) and Android.
-library spotify_app_remote;
+library flutter_spotify_remote;
 
 export 'src/spotify_app_remote_platform.dart';
 export 'src/models/spotify_player_state.dart';

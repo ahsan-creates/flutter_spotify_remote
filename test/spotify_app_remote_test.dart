@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:spotify_app_remote/spotify_app_remote.dart';
+import 'package:flutter_spotify_remote/flutter_spotify_remote.dart';
 import 'package:flutter/services.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('SpotifyAppRemote', () {
+  group('FlutterSpotifyRemote', () {
     final List<MethodCall> log = [];
 
     setUp(() {
@@ -22,51 +22,51 @@ void main() {
     tearDown(() => log.clear());
 
     test('play sends correct method and URI', () async {
-      await SpotifyAppRemote.instance.play('spotify:track:123');
+      await FlutterSpotifyRemote.instance.play('spotify:track:123');
       expect(log.last.method, 'play');
       expect(log.last.arguments['spotifyUri'], 'spotify:track:123');
     });
 
     test('pause sends correct method', () async {
-      await SpotifyAppRemote.instance.pause();
+      await FlutterSpotifyRemote.instance.pause();
       expect(log.last.method, 'pause');
     });
 
     test('resume sends correct method', () async {
-      await SpotifyAppRemote.instance.resume();
+      await FlutterSpotifyRemote.instance.resume();
       expect(log.last.method, 'resume');
     });
 
     test('skipNext sends correct method', () async {
-      await SpotifyAppRemote.instance.skipNext();
+      await FlutterSpotifyRemote.instance.skipNext();
       expect(log.last.method, 'skipNext');
     });
 
     test('skipPrevious sends correct method', () async {
-      await SpotifyAppRemote.instance.skipPrevious();
+      await FlutterSpotifyRemote.instance.skipPrevious();
       expect(log.last.method, 'skipPrevious');
     });
 
     test('seekTo sends correct position', () async {
-      await SpotifyAppRemote.instance.seekTo(30000);
+      await FlutterSpotifyRemote.instance.seekTo(30000);
       expect(log.last.method, 'seekTo');
       expect(log.last.arguments['positionMs'], 30000);
     });
 
     test('setShuffle sends enabled flag', () async {
-      await SpotifyAppRemote.instance.setShuffle(true);
+      await FlutterSpotifyRemote.instance.setShuffle(true);
       expect(log.last.method, 'setShuffle');
       expect(log.last.arguments['shuffle'], true);
     });
 
     test('setRepeatMode sends mode index', () async {
-      await SpotifyAppRemote.instance.setRepeatMode(2);
+      await FlutterSpotifyRemote.instance.setRepeatMode(2);
       expect(log.last.method, 'setRepeatMode');
       expect(log.last.arguments['repeatMode'], 2);
     });
 
     test('connectWithToken sends all required arguments', () async {
-      await SpotifyAppRemote.instance.connectWithToken(
+      await FlutterSpotifyRemote.instance.connectWithToken(
         clientId: 'client_id',
         redirectUrl: 'myapp://callback',
         accessToken: 'token_abc',
@@ -78,7 +78,7 @@ void main() {
     });
 
     test('disconnect sends correct method', () async {
-      await SpotifyAppRemote.instance.disconnect();
+      await FlutterSpotifyRemote.instance.disconnect();
       expect(log.last.method, 'disconnect');
     });
   });
