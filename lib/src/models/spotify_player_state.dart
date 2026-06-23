@@ -44,8 +44,7 @@ class SpotifyPlayerState {
         isPaused: map['isPaused'] as bool? ?? true,
         playbackPosition: map['playbackPosition'] as int? ?? 0,
         isShuffling: map['isShuffling'] as bool? ?? false,
-        repeatMode: SpotifyRepeatMode.values[
-            (map['repeatMode'] as int? ?? 0)
-                .clamp(0, SpotifyRepeatMode.values.length - 1)],
+        repeatMode: SpotifyRepeatMode.values[(map['repeatMode'] as int? ?? 0)
+            .clamp(0, SpotifyRepeatMode.values.length - 1)],
       );
 }

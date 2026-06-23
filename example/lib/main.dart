@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_spotify_remote/flutter_spotify_remote.dart';
 
 // ── Replace these with your Spotify developer app credentials ─────────────
-const _clientId    = 'YOUR_CLIENT_ID';
+const _clientId = 'YOUR_CLIENT_ID';
 const _redirectUrl = 'spotifyappremote://callback';
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -38,7 +38,8 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
 
   StreamSubscription<SpotifyEvent>? _eventSub;
   SpotifyPlayerState? _playerState;
-  SpotifyConnectionStatus _connectionStatus = SpotifyConnectionStatus.disconnected;
+  SpotifyConnectionStatus _connectionStatus =
+      SpotifyConnectionStatus.disconnected;
   String _statusMessage = 'Not connected';
 
   @override
@@ -58,11 +59,13 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
           setState(() {
             _connectionStatus = status;
             _statusMessage = switch (status) {
-              SpotifyConnectionStatus.connected    => 'Connected',
+              SpotifyConnectionStatus.connected => 'Connected',
               SpotifyConnectionStatus.disconnected => 'Disconnected',
-              SpotifyConnectionStatus.tokenExpired => 'Token expired — reconnecting…',
-              SpotifyConnectionStatus.notInstalled => 'Spotify is not installed',
-              SpotifyConnectionStatus.failed       => 'Connection failed: $message',
+              SpotifyConnectionStatus.tokenExpired =>
+                'Token expired — reconnecting…',
+              SpotifyConnectionStatus.notInstalled =>
+                'Spotify is not installed',
+              SpotifyConnectionStatus.failed => 'Connection failed: $message',
             };
           });
           if (status == SpotifyConnectionStatus.tokenExpired) {
@@ -83,14 +86,14 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
   }
 
   Future<void> _tryConnectWithStoredToken() async {
-    final prefs     = await SharedPreferences.getInstance();
-    final token     = prefs.getString('spotify_token');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('spotify_token');
     final expiresAt = prefs.getInt('spotify_token_expires') ?? 0;
 
     if (token != null && DateTime.now().millisecondsSinceEpoch < expiresAt) {
       try {
         await _spotify.connectWithToken(
-          clientId:    _clientId,
+          clientId: _clientId,
           redirectUrl: _redirectUrl,
           accessToken: token,
         );
@@ -107,7 +110,7 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
   Future<void> _connectAndAuthorize() async {
     try {
       await _spotify.connectAndAuthorize(
-        clientId:    _clientId,
+        clientId: _clientId,
         redirectUrl: _redirectUrl,
       );
     } on SpotifyNotInstalledException {
@@ -120,9 +123,9 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
   Future<void> _disconnect() async {
     await _spotify.disconnect();
     setState(() {
-      _playerState      = null;
+      _playerState = null;
       _connectionStatus = SpotifyConnectionStatus.disconnected;
-      _statusMessage    = 'Disconnected';
+      _statusMessage = 'Disconnected';
     });
   }
 
@@ -135,7 +138,7 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
   @override
   Widget build(BuildContext context) {
     final connected = _connectionStatus == SpotifyConnectionStatus.connected;
-    final track     = _playerState?.track;
+    final track = _playerState?.track;
 
     return Scaffold(
       appBar: AppBar(
@@ -238,8 +241,8 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
                         : null,
                   ),
                   onPressed: connected
-                      ? () => _spotify.setShuffle(
-                            !(_playerState?.isShuffling ?? false))
+                      ? () => _spotify
+                          .setShuffle(!(_playerState?.isShuffling ?? false))
                       : null,
                 ),
                 IconButton(
@@ -247,10 +250,11 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
                     _playerState?.repeatMode == SpotifyRepeatMode.track
                         ? Icons.repeat_one
                         : Icons.repeat,
-                    color: (_playerState?.repeatMode ?? SpotifyRepeatMode.off) !=
-                            SpotifyRepeatMode.off
-                        ? const Color(0xFF1DB954)
-                        : null,
+                    color:
+                        (_playerState?.repeatMode ?? SpotifyRepeatMode.off) !=
+                                SpotifyRepeatMode.off
+                            ? const Color(0xFF1DB954)
+                            : null,
                   ),
                   onPressed: connected
                       ? () {
@@ -292,7 +296,7 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
 
   /// Format milliseconds as `m:ss`.
   String _fmt(int ms) {
-    final s   = ms ~/ 1000;
+    final s = ms ~/ 1000;
     final min = s ~/ 60;
     final sec = s % 60;
     return '$min:${sec.toString().padLeft(2, '0')}';

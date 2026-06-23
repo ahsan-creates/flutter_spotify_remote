@@ -12,10 +12,8 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
   static const _method = MethodChannel('com.spotifyappremote/method');
   static const _event = EventChannel('com.spotifyappremote/events');
 
-  late final Stream<SpotifyEvent> _eventStream = _event
-      .receiveBroadcastStream()
-      .map(_parseEvent)
-      .asBroadcastStream();
+  late final Stream<SpotifyEvent> _eventStream =
+      _event.receiveBroadcastStream().map(_parseEvent).asBroadcastStream();
 
   @override
   Stream<SpotifyEvent> get onEvent => _eventStream;
@@ -102,8 +100,7 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
   }
 
   @override
-  Future<void> disconnect() async =>
-      _method.invokeMethod<void>('disconnect');
+  Future<void> disconnect() async => _method.invokeMethod<void>('disconnect');
 
   @override
   Future<bool> isConnected() async =>
@@ -121,8 +118,7 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
   // ── Playback ───────────────────────────────────────────────────────────
 
   @override
-  Future<void> play(String uri) =>
-      _invokePlayback('play', {'spotifyUri': uri});
+  Future<void> play(String uri) => _invokePlayback('play', {'spotifyUri': uri});
 
   @override
   Future<void> pause() => _invokePlayback('pause');

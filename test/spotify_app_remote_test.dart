@@ -86,24 +86,24 @@ void main() {
   group('SpotifyTrack.fromMap', () {
     test('parses all fields correctly', () {
       final track = SpotifyTrack.fromMap({
-        'trackUri':        'spotify:track:abc',
-        'trackName':       'Test Track',
-        'artistName':      'Test Artist',
-        'albumName':       'Test Album',
+        'trackUri': 'spotify:track:abc',
+        'trackName': 'Test Track',
+        'artistName': 'Test Artist',
+        'albumName': 'Test Album',
         'imageIdentifier': 'img-id',
-        'duration':        240000,
+        'duration': 240000,
       });
-      expect(track.uri,             'spotify:track:abc');
-      expect(track.name,            'Test Track');
-      expect(track.artistName,      'Test Artist');
-      expect(track.albumName,       'Test Album');
+      expect(track.uri, 'spotify:track:abc');
+      expect(track.name, 'Test Track');
+      expect(track.artistName, 'Test Artist');
+      expect(track.albumName, 'Test Album');
       expect(track.imageIdentifier, 'img-id');
-      expect(track.durationMs,      240000);
+      expect(track.durationMs, 240000);
     });
 
     test('uses defaults for missing fields', () {
       final track = SpotifyTrack.fromMap({});
-      expect(track.uri,      '');
+      expect(track.uri, '');
       expect(track.durationMs, 0);
     });
   });
@@ -112,10 +112,10 @@ void main() {
     test('parses repeat mode enum correctly', () {
       final state = SpotifyPlayerState.fromMap({
         'repeatMode': 2,
-        'isPaused':   false,
+        'isPaused': false,
       });
       expect(state.repeatMode, SpotifyRepeatMode.context);
-      expect(state.isPaused,   false);
+      expect(state.isPaused, false);
     });
 
     test('clamps out-of-range repeat mode', () {
