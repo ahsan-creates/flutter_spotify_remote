@@ -161,7 +161,7 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
             .userReadPrivate,
             .streaming,
         ]
-        sessionManager?.initiateSession(with: scopes, options: .default)
+        sessionManager?.initiateSession(with: scopes, options: .default, campaign: nil)
     }
 
     // ── Build SPTAppRemote ────────────────────────────────────────────────
@@ -240,18 +240,21 @@ extension SpotifyAppRemotePlugin: SPTSessionManagerDelegate {
         let token     = session.accessToken
         let expiresIn = max(Int(session.expirationDate.timeIntervalSinceNow), 0)
 
-        // Forward the full-scope token to Flutter for persistence
+        // Resolve the pending connectAndAuthorize call immediately — Flutter
+        // side is fire-and-forget so this just unblocks the method channel.
+        pendingResult?(nil)
+        pendingResult = nil
+
+        // Emit token to Flutter; Flutter will call connectWithToken via the
+        // method channel once the event loop runs (app already fully active).
+        // WHY: calling appRemote?.connect() here (inside the URL open handler,
+        // before applicationDidBecomeActive) fails silently — SPTAppRemote
+        // cannot establish a connection until the app is in the foreground.
         emit([
             "event":       "accessToken",
             "accessToken": token,
             "expiresIn":   expiresIn,
         ])
-
-        // Connect App Remote using the fresh token.
-        // pendingResult is resolved in appRemoteDidEstablishConnection.
-        buildAppRemote()
-        appRemote?.connectionParameters.accessToken = token
-        appRemote?.connect()
     }
 
     public func sessionManager(
