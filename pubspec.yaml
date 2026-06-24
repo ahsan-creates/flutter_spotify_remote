@@ -1,9 +1,6 @@
 name: flutter_spotify_remote
-description: >
-  A Flutter plugin for Spotify App Remote SDK. Control Spotify playback,
-  subscribe to player state, and manage authentication on iOS (SDK v5.0.1)
-  and Android. No bundled frameworks — uses CocoaPods on iOS.
-version: 0.0.1
+description: A Flutter plugin for Spotify App Remote SDK. Control playback, subscribe to player state, and manage auth on iOS and Android.
+version: 0.0.2
 homepage: https://github.com/ahsan-creates/flutter_spotify_remote
 repository: https://github.com/ahsan-creates/flutter_spotify_remote
 issue_tracker: https://github.com/ahsan-creates/flutter_spotify_remote/issues
