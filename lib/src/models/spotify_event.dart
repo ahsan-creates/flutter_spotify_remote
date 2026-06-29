@@ -37,5 +37,15 @@ class SpotifyAccessTokenEvent extends SpotifyEvent {
   /// Seconds until the token expires.
   final int expiresIn;
 
-  const SpotifyAccessTokenEvent(this.accessToken, this.expiresIn);
+  /// How the token was obtained:
+  /// - `'firstAuth'`     — full OAuth app-switch via [initializeSession]
+  /// - `'silentRefresh'` — automatic backend refresh via [initializeSession] / [renewSession]
+  /// - `'directAuth'`    — token returned by [connectAndAuthorize] URL callback
+  final String source;
+
+  const SpotifyAccessTokenEvent(
+    this.accessToken,
+    this.expiresIn, {
+    this.source = 'directAuth',
+  });
 }

@@ -2,6 +2,40 @@ import Flutter
 import UIKit
 import SpotifyiOS
 
+// ── DEBUG: intercepts every request to nobese.com and logs it ────────────────
+class SpotifyRequestLogger: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        guard let host = request.url?.host else { return false }
+        return host.contains("nobese.com")
+    }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        print("[SpotifyHTTP] ► \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "")")
+        if let body = request.httpBody, let str = String(data: body, encoding: .utf8) {
+            print("[SpotifyHTTP]   Body: \(str)")
+        } else {
+            print("[SpotifyHTTP]   Body: (empty or binary)")
+        }
+        let session = URLSession(configuration: .default)
+        let task = session.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+            if let r = response { self.client?.urlProtocol(self, didReceive: r, cacheStoragePolicy: .notAllowed) }
+            if let d = data {
+                self.client?.urlProtocol(self, didLoad: d)
+                print("[SpotifyHTTP] ◄ \(String(data: d, encoding: .utf8) ?? "<binary>")")
+            }
+            if let e = error {
+                self.client?.urlProtocol(self, didFailWithError: e)
+                print("[SpotifyHTTP] ✗ error: \(e)")
+            }
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+        task.resume()
+    }
+    override func stopLoading() {}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
 
     // ── Channel names ─────────────────────────────────────────────────────
@@ -13,13 +47,36 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
 
     // ── Spotify ───────────────────────────────────────────────────────────
     private var appRemote:      SPTAppRemote?
-    private var sessionManager: SPTSessionManager?   // used by connectAndAuthorize
+    private var sessionManager: SPTSessionManager?
     private var pendingResult:  FlutterResult?
     private var clientId    = ""
     private var redirectUri = ""
 
+    // Backend URLs for SPTSessionManager token swap + silent refresh.
+    private var tokenSwapURL    = ""
+    private var tokenRefreshURL = ""
+    // Scopes saved from the last initializeSession call so renewSession can reuse them.
+    private var storedScopes: [String] = []
+
+    // Persisted so the lifecycle reconnect path and didRenew can use a fresh token.
+    private var storedToken: String?
+
+    // True once App Remote has connected successfully at least once this session.
+    // Guards applicationDidBecomeActive from connecting on cold start without user intent.
+    private var wasEverConnected = false
+
+    // Prevents applicationDidBecomeActive from firing multiple concurrent reconnects.
+    private var lifecycleReconnectInProgress = false
+
+    // True when the current initializeSession was called with clientOnly: true
+    // (i.e. a silent renewal, not a full OAuth flow). Used to:
+    //   1. Emit the correct "source" field in SpotifyAccessTokenEvent
+    //   2. Detect an expired Keychain session in didInitiate and call SDK renewSession()
+    private var isSilentRenew = false
+
     // ── Registration ──────────────────────────────────────────────────────
     public static func register(with registrar: FlutterPluginRegistrar) {
+        URLProtocol.registerClass(SpotifyRequestLogger.self)
         let messenger = registrar.messenger()
 
         let methodChannel = FlutterMethodChannel(
@@ -51,7 +108,32 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
             pendingResult  = result
             connectWithToken(token: token, spotifyUri: spotifyUri)
 
+        case "initializeSession":
+            clientId        = args["clientId"]        as? String ?? ""
+            redirectUri     = args["redirectUrl"]     as? String ?? ""
+            tokenSwapURL    = args["tokenSwapURL"]    as? String ?? ""
+            tokenRefreshURL = args["tokenRefreshURL"] as? String ?? ""
+            let scopes      = args["scopes"]          as? [String] ?? []
+            storedScopes    = scopes
+            let spotifyUri  = args["spotifyUri"]      as? String ?? ""
+            let clientOnly  = args["clientOnly"]      as? Bool   ?? false
+            // Must be set BEFORE initializeSession() so didInitiate/didRenew
+            // callbacks see the correct value.
+            isSilentRenew   = clientOnly
+            pendingResult   = result
+            initializeSession(scopes: scopes, spotifyUri: spotifyUri, clientOnly: clientOnly)
+
+        case "renewSession":
+            // Called from Dart's _spotify.renewSession() — always a silent renewal.
+            isSilentRenew = true
+            pendingResult = result
+            initializeSession(scopes: storedScopes, spotifyUri: "", clientOnly: true)
+
         case "connectAndAuthorize":
+            if appRemote?.isConnected == true {
+                result(nil)
+                return
+            }
             clientId    = args["clientId"]    as? String ?? ""
             redirectUri = args["redirectUrl"] as? String ?? ""
             pendingResult  = result
@@ -70,8 +152,13 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
             }
 
         case "disconnect":
+            pendingResult?(FlutterError(
+                code: "DISCONNECTED",
+                message: "Disconnect requested",
+                details: nil
+            ))
+            pendingResult = nil
             appRemote?.disconnect()
-            appRemote = nil
             result(nil)
 
         case "isConnected":
@@ -79,66 +166,71 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
 
         case "play":
             let uri = args["spotifyUri"] as? String ?? ""
-            appRemote?.playerAPI?.play(uri) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.play(uri) { [weak self] _, error in self?.settle(result, error: error) }
 
         case "pause":
-            appRemote?.playerAPI?.pause { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.pause { [weak self] _, error in self?.settle(result, error: error) }
 
         case "resume":
-            appRemote?.playerAPI?.resume { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.resume { [weak self] _, error in self?.settle(result, error: error) }
 
         case "skipNext":
-            appRemote?.playerAPI?.skip(toNext:) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.skip(toNext:) { [weak self] _, error in self?.settle(result, error: error) }
 
         case "skipPrevious":
-            appRemote?.playerAPI?.skip(toPrevious:) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.skip(toPrevious:) { [weak self] _, error in self?.settle(result, error: error) }
 
         case "seekTo":
             let ms = args["positionMs"] as? Int ?? 0
-            appRemote?.playerAPI?.seek(toPosition: ms) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.seek(toPosition: ms) { [weak self] _, error in self?.settle(result, error: error) }
 
         case "setShuffle":
             let on = args["shuffle"] as? Bool ?? false
-            appRemote?.playerAPI?.setShuffle(on) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.setShuffle(on) { [weak self] _, error in self?.settle(result, error: error) }
 
         case "setRepeatMode":
             let raw  = args["repeatMode"] as? UInt ?? 0
             let mode = SPTAppRemotePlaybackOptionsRepeatMode(rawValue: raw) ?? .off
-            appRemote?.playerAPI?.setRepeatMode(mode) { [weak self] _, error in
-                self?.settle(result, error: error)
-            }
+            guard let api = requirePlayerAPI(result) else { return }
+            api.setRepeatMode(mode) { [weak self] _, error in self?.settle(result, error: error) }
 
         default:
             result(FlutterMethodNotImplemented)
         }
     }
 
-    // ── Connect with stored token (silent, unchanged) ─────────────────────
+    // ── Connect with stored token ─────────────────────────────────────────
     private func connectWithToken(token: String, spotifyUri: String) {
-        buildAppRemote()
+        storedToken = token
+
+        if appRemote?.isConnected == true {
+            print("[SpotifyPlugin] connectWithToken — already connected, resolving")
+            pendingResult?(true)
+            pendingResult = nil
+            return
+        }
+
+        if appRemote == nil {
+            buildAppRemote()
+        }
         appRemote?.connectionParameters.accessToken = token
-        appRemote?.connect()
+        if spotifyUri.isEmpty {
+            print("[SpotifyPlugin] connectWithToken — connect() (no URI)")
+            appRemote?.connect()
+        } else {
+            print("[SpotifyPlugin] connectWithToken — authorizeAndPlayURI(\(spotifyUri))")
+            appRemote?.authorizeAndPlayURI(spotifyUri)
+        }
     }
 
-    // ── First-time auth via SPTSessionManager (full scopes) ───────────────
-    //
-    // SPTAppRemote.authorizeAndPlayURI only requests app-remote-control scope,
-    // causing 403s for any Web API calls (saved tracks, playback state, etc.).
-    // SPTSessionManager.initiateSession lets us request all required scopes.
+    // ── First-time auth via SPTSessionManager (full scopes, no tokenSwapURL) ─
     private func authorizeWithSessionManager() {
         guard let redirectURL = URL(string: redirectUri) else {
             pendingResult?(FlutterError(
@@ -151,6 +243,7 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
         }
 
         let config = SPTConfiguration(clientID: clientId, redirectURL: redirectURL)
+        isSilentRenew = false
         sessionManager = SPTSessionManager(configuration: config, delegate: self)
 
         let scopes: SPTScope = [
@@ -161,16 +254,102 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
             .userReadPrivate,
             .streaming,
         ]
-        sessionManager?.initiateSession(with: scopes, options: .default, campaign: nil)
+        sessionManager?.initiateSession(with: scopes, options: .clientOnly, campaign: nil)
+    }
+
+    // ── Session init with backend token swap + silent refresh ─────────────
+    private func initializeSession(scopes: [String], spotifyUri: String, clientOnly: Bool = false) {
+        guard let redirectURL = URL(string: redirectUri) else {
+            pendingResult?(FlutterError(
+                code: "INVALID_REDIRECT_URL",
+                message: "Invalid redirect URL: \(redirectUri)",
+                details: nil
+            ))
+            pendingResult = nil
+            return
+        }
+
+        print("[SpotifyPlugin] ── initializeSession ──────────────────────────────")
+        print("[SpotifyPlugin] clientId:        \(clientId)")
+        print("[SpotifyPlugin] redirectUri:     \(redirectUri)")
+        print("[SpotifyPlugin] tokenSwapURL:    \(tokenSwapURL)")
+        print("[SpotifyPlugin] tokenRefreshURL: \(tokenRefreshURL)")
+        print("[SpotifyPlugin] spotifyUri:      \(spotifyUri)")
+        print("[SpotifyPlugin] clientOnly:      \(clientOnly)")
+        print("[SpotifyPlugin] isSilentRenew:   \(isSilentRenew)")
+        print("[SpotifyPlugin] scopes:          \(scopes)")
+        print("[SpotifyPlugin] ────────────────────────────────────────────────────")
+
+        if clientOnly {
+            // ── Same-session renewal ──────────────────────────────────────
+            // The existing sessionManager's session is set by didInitiate after first
+            // OAuth. Creating a NEW SPTSessionManager loses that reference — the new
+            // instance's session property starts as nil even though the Keychain holds
+            // the data. So we reuse the existing instance and call renewSession() on it.
+            if let sm = sessionManager, let session = sm.session {
+                print("[SpotifyPlugin] clientOnly — reusing existing SM (isExpired=\(session.isExpired) refreshToken=\(session.refreshToken.prefix(10))...) — calling SDK renewSession()")
+                sm.renewSession()
+                return
+            }
+
+            // ── Cold-start renewal (app killed and relaunched) ────────────
+            // No live session manager. Create a new one with tokenRefreshURL and call
+            // initiateSession(clientOnly). The SDK reads Keychain:
+            //   • Valid session found → didInitiate fires WITHOUT opening Spotify ✅
+            //   • Expired session found → didInitiate fires (isExpired=true) → we call
+            //     renewSession() from there → didRenew fires ✅
+            //   • No Keychain session → didFailWith fires → Dart sees AUTH_ERROR ✅
+            // Critically, NO app switch happens if a Keychain session exists.
+            let config = SPTConfiguration(clientID: clientId, redirectURL: redirectURL)
+            if !tokenRefreshURL.isEmpty, let url = URL(string: tokenRefreshURL) {
+                config.tokenRefreshURL = url
+            }
+            config.playURI = spotifyUri
+            sessionManager = SPTSessionManager(configuration: config, delegate: self)
+            print("[SpotifyPlugin] clientOnly — cold start, calling initiateSession(clientOnly)")
+            sessionManager?.initiateSession(with: buildScopes(scopes), options: .clientOnly, campaign: nil)
+            return
+        }
+
+        // ── Full OAuth ────────────────────────────────────────────────────
+        let config = SPTConfiguration(clientID: clientId, redirectURL: redirectURL)
+        if !tokenSwapURL.isEmpty, let url = URL(string: tokenSwapURL) {
+            config.tokenSwapURL = url
+        }
+        if !tokenRefreshURL.isEmpty, let url = URL(string: tokenRefreshURL) {
+            config.tokenRefreshURL = url
+        }
+        config.playURI = spotifyUri
+        sessionManager = SPTSessionManager(configuration: config, delegate: self)
+        print("[SpotifyPlugin] initiateSession options: default (full OAuth)")
+        sessionManager?.initiateSession(with: buildScopes(scopes), options: .default, campaign: nil)
+    }
+
+    private func buildScopes(_ scopes: [String]) -> SPTScope {
+        var result: SPTScope = []
+        for scope in scopes {
+            switch scope {
+            case "app-remote-control":          result.insert(.appRemoteControl)
+            case "user-modify-playback-state":  result.insert(.userModifyPlaybackState)
+            case "user-read-playback-state":    result.insert(.userReadPlaybackState)
+            case "user-read-currently-playing": result.insert(.userReadCurrentlyPlaying)
+            case "user-library-read":           result.insert(.userLibraryRead)
+            case "user-library-modify":         result.insert(.userLibraryModify)
+            case "user-read-private":           result.insert(.userReadPrivate)
+            case "user-read-email":             result.insert(.userReadEmail)
+            case "playlist-read-private":       result.insert(.playlistReadPrivate)
+            case "playlist-read-collaborative": result.insert(.playlistReadCollaborative)
+            case "streaming":                   result.insert(.streaming)
+            default: break
+            }
+        }
+        return result
     }
 
     // ── Build SPTAppRemote ────────────────────────────────────────────────
     private func buildAppRemote() {
         guard let redirectURL = URL(string: redirectUri) else { return }
-        let config = SPTConfiguration(
-            clientID: clientId,
-            redirectURL: redirectURL
-        )
+        let config = SPTConfiguration(clientID: clientId, redirectURL: redirectURL)
         appRemote           = SPTAppRemote(configuration: config, logLevel: .error)
         appRemote?.delegate = self
     }
@@ -181,27 +360,34 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
         open url: URL,
         options: [UIApplication.OpenURLOptionsKey: Any] = [:]
     ) -> Bool {
-        // SPTSessionManager handles the OAuth callback for connectAndAuthorize.
-        // Must be tried first so it can capture the full-scope token.
+        print("[SpotifyPlugin] application:openURL: \(url.absoluteString)")
+
+        // SPTSessionManager handles the OAuth callback (initializeSession path).
         if sessionManager?.application(app, open: url, options: options) == true {
+            print("[SpotifyPlugin] URL handled by sessionManager")
             return true
         }
 
-        // SPTAppRemote handles the token URL for the connectWithToken silent path.
+        // SPTAppRemote handles the direct token URL (authorizeAndPlayURI path).
         guard let params = appRemote?.authorizationParameters(from: url) else {
+            print("[SpotifyPlugin] URL not recognized by sessionManager or appRemote")
             return false
         }
         if let token = params[SPTAppRemoteAccessTokenKey] as? String {
+            print("[SpotifyPlugin] authorizationParameters — got direct token")
             appRemote?.connectionParameters.accessToken = token
+            storedToken = token
             appRemote?.connect()
             emit([
                 "event":       "accessToken",
                 "accessToken": token,
                 "expiresIn":   3600,
+                "source":      "directAuth",
             ])
             return true
         }
         if let errorDesc = params[SPTAppRemoteErrorDescriptionKey] as? String {
+            print("[SpotifyPlugin] authorizationParameters — error: \(errorDesc)")
             pendingResult?(FlutterError(
                 code: "AUTH_ERROR",
                 message: errorDesc,
@@ -212,7 +398,35 @@ public class SpotifyAppRemotePlugin: NSObject, FlutterPlugin {
         return false
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+    public func applicationDidBecomeActive(_ application: UIApplication) {
+        // appRemote is nil after a disconnect (reset in didDisconnectWithError).
+        // Rebuild it here so we can attempt a silent reconnect on foreground.
+        guard wasEverConnected,
+              !lifecycleReconnectInProgress,
+              appRemote?.isConnected != true,
+              let token = storedToken,
+              pendingResult == nil else { return }
+        lifecycleReconnectInProgress = true
+        if appRemote == nil { buildAppRemote() }
+        print("[SpotifyPlugin] applicationDidBecomeActive — silent reconnect")
+        appRemote?.connectionParameters.accessToken = token
+        appRemote?.connect()
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
+    private func requirePlayerAPI(_ result: FlutterResult) -> SPTAppRemotePlayerAPI? {
+        guard let api = appRemote?.playerAPI, appRemote?.isConnected == true else {
+            result(FlutterError(
+                code: "NOT_CONNECTED",
+                message: "Spotify App Remote is not connected",
+                details: nil
+            ))
+            return nil
+        }
+        return api
+    }
+
     private func settle(_ result: FlutterResult, error: Error?) {
         if let error = error {
             result(FlutterError(
@@ -240,20 +454,30 @@ extension SpotifyAppRemotePlugin: SPTSessionManagerDelegate {
         let token     = session.accessToken
         let expiresIn = max(Int(session.expirationDate.timeIntervalSinceNow), 0)
 
-        // Resolve the pending connectAndAuthorize call immediately — Flutter
-        // side is fire-and-forget so this just unblocks the method channel.
+        print("[SpotifyPlugin] didInitiate — isSilentRenew=\(isSilentRenew) isExpired=\(session.isExpired) expiresIn=\(expiresIn)s token=\(token.prefix(15))...")
+
+        // Cold-start path: initiateSession(clientOnly) returned an expired Keychain
+        // session. Call SDK renewSession() to hit tokenRefreshURL silently.
+        // pendingResult stays pending until didRenew (or didFailWith) fires.
+        if isSilentRenew && session.isExpired {
+            print("[SpotifyPlugin] didInitiate — expired Keychain session, calling SDK renewSession()")
+            sessionManager?.renewSession()
+            return
+        }
+
+        let source = isSilentRenew ? "silentRefresh" : "firstAuth"
+        storedToken   = token
+        isSilentRenew = false
+
+        print("[SpotifyPlugin] didInitiate — resolving pendingResult (source=\(source))")
         pendingResult?(nil)
         pendingResult = nil
 
-        // Emit token to Flutter; Flutter will call connectWithToken via the
-        // method channel once the event loop runs (app already fully active).
-        // WHY: calling appRemote?.connect() here (inside the URL open handler,
-        // before applicationDidBecomeActive) fails silently — SPTAppRemote
-        // cannot establish a connection until the app is in the foreground.
         emit([
             "event":       "accessToken",
             "accessToken": token,
             "expiresIn":   expiresIn,
+            "source":      source,
         ])
     }
 
@@ -262,6 +486,9 @@ extension SpotifyAppRemotePlugin: SPTSessionManagerDelegate {
         didFailWith error: Error
     ) {
         let msg = error.localizedDescription
+        print("[SpotifyPlugin] didFailWith — error: \(error)")
+        print("[SpotifyPlugin] didFailWith — localizedDescription: \(msg)")
+        isSilentRenew = false
         pendingResult?(FlutterError(code: "AUTH_ERROR", message: msg, details: nil))
         pendingResult = nil
         emit(["event": "connectionFailed", "code": "AUTH_ERROR", "message": msg])
@@ -273,10 +500,28 @@ extension SpotifyAppRemotePlugin: SPTSessionManagerDelegate {
     ) {
         let token     = session.accessToken
         let expiresIn = max(Int(session.expirationDate.timeIntervalSinceNow), 0)
+        storedToken   = token
+        isSilentRenew = false
+
+        print("[SpotifyPlugin] didRenew — token=\(token.prefix(15))... expiresIn=\(expiresIn)s")
+
+        // CRITICAL: resolve the pending initializeSession/renewSession Flutter future.
+        // Without this, the Dart await never returns, _connectingInProgress stays true
+        // forever, and all subsequent connectAndAuthorize/renewSession calls are blocked.
+        pendingResult?(nil)
+        pendingResult = nil
+
+        // Update the stored token so the next connect() call uses the fresh one.
+        // Do NOT call appRemote?.connect() here — Dart receives the SpotifyAccessTokenEvent
+        // and calls connectWithToken, which calls connect(). A second connect() call from
+        // here races with that and causes both attempts to fail with "Connection attempt failed."
+        appRemote?.connectionParameters.accessToken = token
+
         emit([
             "event":       "accessToken",
             "accessToken": token,
             "expiresIn":   expiresIn,
+            "source":      "silentRefresh",
         ])
     }
 }
@@ -285,8 +530,11 @@ extension SpotifyAppRemotePlugin: SPTSessionManagerDelegate {
 extension SpotifyAppRemotePlugin: SPTAppRemoteDelegate {
 
     public func appRemoteDidEstablishConnection(_ appRemote: SPTAppRemote) {
+        wasEverConnected = true
+        lifecycleReconnectInProgress = false
         appRemote.playerAPI?.delegate = self
         appRemote.playerAPI?.subscribe(toPlayerState: { _, _ in })
+        print("[SpotifyPlugin] appRemoteDidEstablishConnection")
         pendingResult?(true)
         pendingResult = nil
         emit(["event": "connected"])
@@ -297,6 +545,8 @@ extension SpotifyAppRemotePlugin: SPTAppRemoteDelegate {
         didFailConnectionAttemptWithError error: Error?
     ) {
         let msg = error?.localizedDescription ?? "Connection failed"
+        print("[SpotifyPlugin] didFailConnectionAttemptWithError: \(msg)")
+        lifecycleReconnectInProgress = false
         let isAuthError = msg.lowercased().contains("token")
             || msg.lowercased().contains("401")
             || msg.lowercased().contains("unauthorized")
@@ -310,9 +560,16 @@ extension SpotifyAppRemotePlugin: SPTAppRemoteDelegate {
         _ appRemote: SPTAppRemote,
         didDisconnectWithError error: Error?
     ) {
+        let msg = error?.localizedDescription ?? "Disconnected"
+        print("[SpotifyPlugin] didDisconnectWithError: \(msg)")
+        // Nil out the appRemote instance. The SDK returns "Connection attempt failed"
+        // when connect() is called on the same instance after didDisconnectWithError.
+        // connectWithToken rebuilds it fresh (via buildAppRemote) before the next connect().
+        self.appRemote?.delegate = nil
+        self.appRemote = nil
         emit([
             "event":   "disconnected",
-            "message": error?.localizedDescription ?? "Disconnected",
+            "message": msg,
         ])
     }
 }

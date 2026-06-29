@@ -3,7 +3,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_spotify_remote'
-  s.version          = '0.0.1'
+  s.version          = '0.0.3'
   s.summary          = 'Flutter plugin for Spotify App Remote SDK'
   s.description      = <<-DESC
     Flutter plugin wrapping Spotify App Remote SDK for iOS and Android.

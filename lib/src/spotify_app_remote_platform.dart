@@ -7,6 +7,31 @@ import 'models/spotify_event.dart';
 abstract class SpotifyAppRemotePlatform {
   // ── Auth & Connection ──────────────────────────────────────────────────
 
+  /// Initialize a Spotify session with backend token swap and silent refresh.
+  ///
+  /// Configures [SPTSessionManager] with [tokenSwapURL] and [tokenRefreshURL]
+  /// so the iOS SDK can renew tokens automatically — no app switch after the
+  /// first approval. Call on every app start; the SDK decides whether a full
+  /// OAuth flow, a silent backend refresh, or nothing is needed.
+  ///
+  /// Emits [SpotifyAccessTokenEvent] when a token is obtained or renewed.
+  Future<void> initializeSession({
+    required String clientId,
+    required String redirectUrl,
+    required String tokenSwapURL,
+    required String tokenRefreshURL,
+    List<String> scopes = const [
+      'app-remote-control',
+      'user-modify-playback-state',
+      'user-read-playback-state',
+      'user-library-read',
+      'playlist-read-private',
+      'streaming',
+    ],
+    String spotifyUri = '',
+    bool clientOnly = false,
+  });
+
   /// Connect using a previously stored access token (silent, no app-switch).
   ///
   /// Prefer this path on every app launch after the first successful
@@ -29,6 +54,14 @@ abstract class SpotifyAppRemotePlatform {
     required String redirectUrl,
     String spotifyUri = '',
   });
+
+  /// Silently renew the Spotify access token via the backend tokenRefreshURL.
+  ///
+  /// Requires [initializeSession] to have been called first (stores URLs and
+  /// scopes on the native side). The iOS SDK POSTs to `tokenRefreshURL` with
+  /// no app switch. The new token is delivered as [SpotifyAccessTokenEvent].
+  /// Throws [SpotifyAuthException] if no stored session is found.
+  Future<void> renewSession();
 
   /// Disconnect from Spotify App Remote and release resources.
   Future<void> disconnect();
