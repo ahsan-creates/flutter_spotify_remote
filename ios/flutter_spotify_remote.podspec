@@ -3,7 +3,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_spotify_remote'
-  s.version          = '0.0.1'
+  s.version          = '0.0.3'
   s.summary          = 'Flutter plugin for Spotify App Remote SDK'
   s.description      = <<-DESC
     Flutter plugin wrapping Spotify App Remote SDK for iOS and Android.
@@ -15,9 +15,8 @@ Pod::Spec.new do |s|
   s.author           = { 'Your Name' => 'you@example.com' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
+  s.vendored_frameworks = 'Frameworks/SpotifyiOS.xcframework'
   s.dependency         'Flutter'
-  # Pull SpotifyiOS from CocoaPods — avoids the xcframework conflict in spotify_sdk
-  s.dependency         'SpotifyiOS', '~> 5.0.1'
   s.platform         = :ios, '14.0'
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',

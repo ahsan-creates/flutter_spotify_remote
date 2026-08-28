@@ -41,6 +41,45 @@ class FlutterSpotifyRemote {
   /// See [SpotifyEvent] subclasses for available event types.
   Stream<SpotifyEvent> get onEvent => _platform.onEvent;
 
+  /// Initialize a Spotify session with backend token swap and silent refresh.
+  ///
+  /// The recommended auth path for production apps. Call on every app start —
+  /// the iOS SDK will handle first-time OAuth, silent background refresh, and
+  /// everything in between without further input.
+  ///
+  /// - [tokenSwapURL]    — your backend endpoint that exchanges the auth code
+  ///   for an access + refresh token pair (form-encoded POST, field: `code`)
+  /// - [tokenRefreshURL] — your backend endpoint that returns a new access
+  ///   token given a refresh token (form-encoded POST, field: `refresh_token`)
+  ///
+  /// Listen to [onEvent] for [SpotifyAccessTokenEvent] to persist the token.
+  /// After receiving the token, call [connectWithToken] to connect the player.
+  Future<void> initializeSession({
+    required String clientId,
+    required String redirectUrl,
+    required String tokenSwapURL,
+    required String tokenRefreshURL,
+    List<String> scopes = const [
+      'app-remote-control',
+      'user-modify-playback-state',
+      'user-read-playback-state',
+      'user-library-read',
+      'playlist-read-private',
+      'streaming',
+    ],
+    String spotifyUri = '',
+    bool clientOnly = false,
+  }) =>
+      _platform.initializeSession(
+        clientId: clientId,
+        redirectUrl: redirectUrl,
+        tokenSwapURL: tokenSwapURL,
+        tokenRefreshURL: tokenRefreshURL,
+        scopes: scopes,
+        spotifyUri: spotifyUri,
+        clientOnly: clientOnly,
+      );
+
   /// Connect using a previously stored access token (silent, no app-switch).
   Future<void> connectWithToken({
     required String clientId,
@@ -66,6 +105,16 @@ class FlutterSpotifyRemote {
         redirectUrl: redirectUrl,
         spotifyUri: spotifyUri,
       );
+
+  /// Silently renew the Spotify access token via the backend tokenRefreshURL.
+  ///
+  /// The new token is emitted as a [SpotifyAccessTokenEvent] on [onEvent].
+  /// Throws [SpotifyAuthException] if no stored Keychain session is found.
+  /// Silently refresh the Spotify access token using the backend tokenRefreshURL.
+  ///
+  /// Call [initializeSession] first — the native side reuses the stored URLs
+  /// and scopes. The new token is emitted as [SpotifyAccessTokenEvent].
+  Future<void> renewSession() => _platform.renewSession();
 
   /// Disconnect from Spotify App Remote and release resources.
   Future<void> disconnect() => _platform.disconnect();

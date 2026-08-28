@@ -53,6 +53,7 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
         return SpotifyAccessTokenEvent(
           map['accessToken'] as String? ?? '',
           map['expiresIn'] as int? ?? 3600,
+          source: map['source'] as String? ?? 'directAuth',
         );
       default:
         return const SpotifyConnectionChangedEvent(
@@ -62,6 +63,38 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
   }
 
   // ── Auth & Connection ──────────────────────────────────────────────────
+
+  @override
+  Future<void> initializeSession({
+    required String clientId,
+    required String redirectUrl,
+    required String tokenSwapURL,
+    required String tokenRefreshURL,
+    List<String> scopes = const [
+      'app-remote-control',
+      'user-modify-playback-state',
+      'user-read-playback-state',
+      'user-library-read',
+      'playlist-read-private',
+      'streaming',
+    ],
+    String spotifyUri = '',
+    bool clientOnly = false,
+  }) async {
+    try {
+      await _method.invokeMethod<void>('initializeSession', {
+        'clientId': clientId,
+        'redirectUrl': redirectUrl,
+        'tokenSwapURL': tokenSwapURL,
+        'tokenRefreshURL': tokenRefreshURL,
+        'scopes': scopes,
+        'spotifyUri': spotifyUri,
+        'clientOnly': clientOnly,
+      });
+    } on PlatformException catch (e) {
+      _throwNative(e);
+    }
+  }
 
   @override
   Future<void> connectWithToken({
@@ -94,6 +127,15 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
         'redirectUrl': redirectUrl,
         'spotifyUri': spotifyUri,
       });
+    } on PlatformException catch (e) {
+      _throwNative(e);
+    }
+  }
+
+  @override
+  Future<void> renewSession() async {
+    try {
+      await _method.invokeMethod<void>('renewSession');
     } on PlatformException catch (e) {
       _throwNative(e);
     }
