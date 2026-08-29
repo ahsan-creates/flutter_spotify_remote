@@ -157,6 +157,21 @@ class MethodChannelSpotifyAppRemote extends SpotifyAppRemotePlatform {
     }
   }
 
+  @override
+  Future<bool> canPlayOnDemand() async {
+    try {
+      final caps =
+          await _method.invokeMapMethod<String, dynamic>('getCapabilities');
+      return caps?['canPlayOnDemand'] as bool? ?? true;
+    } on PlatformException {
+      // Unknown (not connected, or a platform without the check) — assume the
+      // richer capability so behaviour is unchanged where it isn't supported.
+      return true;
+    } on MissingPluginException {
+      return true;
+    }
+  }
+
   // ── Playback ───────────────────────────────────────────────────────────
 
   @override

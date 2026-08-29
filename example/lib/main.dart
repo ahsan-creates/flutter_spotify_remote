@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_spotify_remote/flutter_spotify_remote.dart';
 
 // ── Replace these with your Spotify developer app credentials ─────────────
-const _clientId = 'YOUR_CLIENT_ID';
+const _clientId = 'fd6a6ef108634181b17f1fc31b9d2775';
 const _redirectUrl = 'spotifyappremote://callback';
 // ─────────────────────────────────────────────────────────────────────────
 

@@ -17,6 +17,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.spotifyappremote.flutter_spotify_remote_example"
+        manifestPlaceholders["redirectSchemeName"] = "spotifyappremote"
+        manifestPlaceholders["redirectHostName"] = "callback"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

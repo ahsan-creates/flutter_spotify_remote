@@ -1,3 +1,31 @@
+## 0.0.4
+
+**Android auth parity.** Android now implements the full session/token contract
+that previously existed only on iOS.
+
+* Android: implemented `initializeSession()` / `renewSession()` — previously
+  `notImplemented`, so Android never obtained a token
+* Android: `getAccessToken()` now returns the live token instead of a
+  `NOT_SUPPORTED` error, and the `accessToken` event is emitted with the same
+  `source` values as iOS (`firstAuth` / `silentRefresh`)
+* Android: OAuth via the Spotify auth library (`com.spotify.android:auth`), with
+  backend token swap and refresh when `tokenSwapURL` / `tokenRefreshURL` are set
+* Android: `connectWithToken()` now reuses the supplied token with
+  `showAuthView(false)` instead of running an interactive connect, so silent
+  reconnects no longer app-switch into Spotify
+* Android: declared `<queries>` for `com.spotify.music` — Android 11+ package
+  visibility made `connect()` fail with `CouldNotFindSpotifyApp` even when
+  Spotify was installed
+* Android: `SPOTIFY_NOT_INSTALLED` / `TOKEN_EXPIRED` error codes and the
+  `disconnected` event now match the iOS contract; `spotifyUri` is honoured on
+  connect
+* Android setup now requires the `redirectSchemeName` / `redirectHostName`
+  manifest placeholders — see README
+* Added `canPlayOnDemand()` — reports whether the connected account may play an
+  individual track URI (Spotify Free accounts cannot), so callers can adapt the
+  UI instead of letting `play()` fail
+* iOS: unchanged
+
 ## 0.0.3
 
 * Bundled `SpotifyiOS.xcframework` (v5.0.1) directly — no Podfile `source` required in consuming apps

@@ -46,6 +46,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.20")
+    // Spotify authorization library — App Remote alone never yields a Web API
+    // token, so OAuth runs through AuthorizationClient. Available on Maven
+    // Central (unlike the App Remote .aar), and it contributes the
+    // <queries> package-visibility entries Android 11+ requires.
+    implementation("com.spotify.android:auth:5.0.0")
     // Spotify Android App Remote SDK (.aar) — user must download and place in android/libs/
     // See README for download instructions.
     compileOnly(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
