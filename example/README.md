@@ -1,17 +1,16 @@
-# flutter_spotify_remote_example
+# flutter_spotify_remote example
 
-Demonstrates how to use the flutter_spotify_remote plugin.
+A runnable demo of [`flutter_spotify_remote`](https://pub.dev/packages/flutter_spotify_remote):
+connect to the Spotify app, control playback, and follow the player state stream.
 
-## Getting Started
+## Running it
 
-This project is a starting point for a Flutter application.
+1. Register an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+   and add `spotifyappremote://callback` as a redirect URI.
+2. Put your client ID in [`lib/main.dart`](lib/main.dart).
+3. Follow the Android `.aar` setup in the [plugin README](../README.md#android-setup).
+4. Install the Spotify app on the device and log in.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run
+```

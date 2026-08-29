@@ -3,16 +3,17 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_spotify_remote'
-  s.version          = '0.0.3'
+  s.version          = '0.0.4'
   s.summary          = 'Flutter plugin for Spotify App Remote SDK'
   s.description      = <<-DESC
-    Flutter plugin wrapping Spotify App Remote SDK for iOS and Android.
-    Supports playback control and player state subscription.
-    Uses CocoaPods for the SpotifyiOS framework — no bundled xcframework.
+    Flutter plugin wrapping the Spotify App Remote SDK for iOS and Android.
+    Supports playback control, player state subscription, and OAuth with
+    silent token refresh. The SpotifyiOS xcframework (v5.0.1) is vendored,
+    so no extra CocoaPods source is required in the host app.
   DESC
   s.homepage         = 'https://github.com/ahsan-creates/flutter_spotify_remote'
   s.license          = { :type => 'MIT', :file => '../LICENSE' }
-  s.author           = { 'Your Name' => 'you@example.com' }
+  s.author           = { 'Ahsan Khalil' => 'https://github.com/ahsan-creates' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
   s.vendored_frameworks = 'Frameworks/SpotifyiOS.xcframework'

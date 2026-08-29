@@ -1,3 +1,52 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   package="com.spotifyappremote.spotify_app_remote">
+
+  <!-- Android 11+ package visibility: App Remote binds to the Spotify app's
+       service and the auth flow launches it. Without this, connect() fails
+       with CouldNotFindSpotifyApp even when Spotify is installed. -->
+  <queries>
+    <package android:name="com.spotify.music" />
+  </queries>
+
+  <application>
+    <!-- Since auth library 5.0.0 the library no longer declares this
+         intent-filter itself; the host must. Declared here so consuming apps
+         only need the redirectSchemeName / redirectHostName placeholders,
+         exactly as before the upgrade. -->
+    <activity
+        android:name="com.spotify.sdk.android.auth.browser.RedirectUriReceiverActivity"
+        android:exported="true"
+        tools:node="merge">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="${redirectSchemeName}"
+            android:host="${redirectHostName}" />
+      </intent-filter>
+    </activity>
+
+    <!-- Receiver for the browser authorization fallback. Uses a distinct host
+         from the auth library's own redirect activity so the two never collide;
+         consuming apps must register <scheme>://spotify-auth as a second
+         Redirect URI in the Spotify dashboard. -->
+    <activity
+        android:name="com.spotifyappremote.spotify_app_remote.SpotifyBrowserAuthActivity"
+        android:exported="true"
+        android:launchMode="singleTask"
+        android:noHistory="true"
+        android:excludeFromRecents="true"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data
+            android:scheme="${redirectSchemeName}"
+            android:host="spotify-auth" />
+      </intent-filter>
+    </activity>
+  </application>
 </manifest>

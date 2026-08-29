@@ -125,6 +125,13 @@ class FlutterSpotifyRemote {
   /// Returns the current OAuth access token (iOS only while connected).
   Future<String> getAccessToken() => _platform.getAccessToken();
 
+  /// Whether the connected user may play a specific track on demand.
+  ///
+  /// Spotify Free accounts return false: they can play a playlist or album
+  /// context (shuffled) but not an individual track URI. Use this to pick the
+  /// right UI rather than letting [play] fail.
+  Future<bool> canPlayOnDemand() => _platform.canPlayOnDemand();
+
   /// Start playing the given Spotify URI.
   Future<void> play(String spotifyUri) => _platform.play(spotifyUri);
 

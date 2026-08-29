@@ -75,6 +75,13 @@ abstract class SpotifyAppRemotePlatform {
   /// Not supported on Android (throws [SpotifyCommandException]).
   Future<String> getAccessToken();
 
+  /// Whether the connected user may play a specific track on demand.
+  ///
+  /// False for Spotify Free accounts, which can only play a context
+  /// (playlist or album), shuffled. iOS returns true — the iOS SDK exposes no
+  /// equivalent capability check.
+  Future<bool> canPlayOnDemand();
+
   // ── Playback ───────────────────────────────────────────────────────────
 
   /// Start playing the given Spotify URI (track, album, playlist, etc.).
