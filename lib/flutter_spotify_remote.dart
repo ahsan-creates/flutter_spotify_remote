@@ -11,3 +11,5 @@ export 'src/models/spotify_connection_status.dart';
 export 'src/models/spotify_event.dart';
 export 'src/exceptions/spotify_exceptions.dart';
 export 'src/spotify_app_remote_impl.dart';
+export 'src/spotify_volume_controller.dart'
+    show SpotifyVolumeController, SpotifyHttpResponse, SpotifyHttpSender;

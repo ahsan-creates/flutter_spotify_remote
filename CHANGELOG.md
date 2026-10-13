@@ -1,3 +1,26 @@
+## 0.0.5
+
+**Volume control.** The App Remote SDK exposes no volume API on either platform,
+so this is implemented over the Spotify Web API (`PUT /me/player/volume`).
+
+* Added `setVolume(percent)` and `getVolume()` — `0`–`100`, clamped, with an
+  optional `deviceId`
+* Added `volumeUp()` / `volumeDown()` with a configurable `step` (default 10),
+  and `mute()` / `unmute()` / `toggleMute()` that restore the pre-mute level
+* Added `isMuted` and `lastKnownVolume` for rendering UI without a network call
+* `setVolume` coalesces rapid calls — one request in flight at a time, last
+  value wins — so it is safe to call per frame from a slider's `onChanged`
+* Access tokens from `connectWithToken` and `SpotifyAccessTokenEvent` are now
+  cached and reused for the Web API; `setAccessToken()` supplies one manually
+* Added `SpotifyPremiumRequiredException` (403), `SpotifyNoActiveDeviceException`
+  (404 / no active device) and `SpotifyWebApiException` for other failures
+* `disconnect()` now clears the cached token and volume state
+* Example app: volume slider, mute toggle and step button
+
+Volume requires Spotify Premium, an active device, and the
+`user-modify-playback-state` / `user-read-playback-state` scopes — see the
+Volume section of the README.
+
 ## 0.0.4
 
 **Android auth parity.** Android now implements the full session/token contract

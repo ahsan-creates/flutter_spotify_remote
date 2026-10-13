@@ -42,6 +42,9 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
       SpotifyConnectionStatus.disconnected;
   String _statusMessage = 'Not connected';
 
+  /// Slider position. Null until the first successful read from Spotify.
+  double? _volume;
+
   @override
   void initState() {
     super.initState();
@@ -124,9 +127,57 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
     await _spotify.disconnect();
     setState(() {
       _playerState = null;
+      _volume = null;
       _connectionStatus = SpotifyConnectionStatus.disconnected;
       _statusMessage = 'Disconnected';
     });
+  }
+
+  /// Reads the current volume once, so the slider starts in the right place.
+  ///
+  /// Volume goes through the Spotify Web API, so it needs Premium and an
+  /// active device — both failures are reported instead of thrown away.
+  Future<void> _loadVolume() async {
+    try {
+      final volume = await _spotify.getVolume();
+      setState(() => _volume = volume / 100);
+    } on SpotifyNoActiveDeviceException {
+      setState(() => _statusMessage = 'Play something first to set the volume');
+    } on SpotifyPremiumRequiredException {
+      setState(() => _statusMessage = 'Volume control needs Spotify Premium');
+    } catch (e) {
+      setState(() => _statusMessage = 'Volume unavailable: $e');
+    }
+  }
+
+  /// Applies a slider value. Rapid drags are coalesced inside the plugin.
+  Future<void> _setVolume(double value) async {
+    setState(() => _volume = value);
+    try {
+      await _spotify.setVolume((value * 100).round());
+    } on SpotifyPremiumRequiredException {
+      setState(() => _statusMessage = 'Volume control needs Spotify Premium');
+    } on SpotifyNoActiveDeviceException {
+      setState(() => _statusMessage = 'Play something first to set the volume');
+    } catch (e) {
+      setState(() => _statusMessage = 'Volume failed: $e');
+    }
+  }
+
+  Future<void> _toggleMute() async {
+    await _spotify.toggleMute();
+    _syncSliderToPlugin();
+  }
+
+  Future<void> _volumeUp() async {
+    await _spotify.volumeUp();
+    _syncSliderToPlugin();
+  }
+
+  /// Mirrors the plugin's cached volume onto the slider after a step or mute.
+  void _syncSliderToPlugin() {
+    final volume = _spotify.lastKnownVolume;
+    if (volume != null) setState(() => _volume = volume / 100);
   }
 
   @override
@@ -270,7 +321,37 @@ class _SpotifyHomePageState extends State<SpotifyHomePage> {
               ],
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 8),
+
+            // ── Volume (Spotify Web API — Premium only) ──────────────────
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                      _spotify.isMuted ? Icons.volume_off : Icons.volume_mute),
+                  onPressed: connected ? _toggleMute : null,
+                ),
+                Expanded(
+                  child: Slider(
+                    value: _volume ?? 0,
+                    // onChanged fires per frame while dragging; the plugin
+                    // coalesces the requests so this is safe to call directly.
+                    onChanged: connected && _volume != null ? _setVolume : null,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.volume_up),
+                  onPressed: connected ? _volumeUp : null,
+                ),
+              ],
+            ),
+            if (connected && _volume == null)
+              TextButton(
+                onPressed: _loadVolume,
+                child: const Text('Load volume'),
+              ),
+
+            const SizedBox(height: 16),
 
             // ── Play a specific track ────────────────────────────────────
             FilledButton.icon(

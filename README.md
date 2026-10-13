@@ -19,6 +19,7 @@ await FlutterSpotifyRemote.instance.play('spotify:track:6rqhFgbbKwnb9MLmUQDhG6')
 ## Features
 
 - 🎛 **Playback control** — play, pause, resume, skip, seek, shuffle, repeat
+- 🔊 **Volume control** — set, step, and mute, with slider-safe request coalescing (Premium)
 - 📡 **Real-time state** — a `Stream<SpotifyEvent>` of player state and connection changes
 - 🔐 **OAuth with silent refresh** — backend token swap/refresh on **both** iOS and Android, so users approve once and never app-switch again
 - 🧩 **Sealed event hierarchy** — handle every `SpotifyEvent` exhaustively with `switch`
@@ -179,6 +180,12 @@ await spotify.seekTo(30000);          // 30 seconds
 await spotify.setShuffle(true);
 await spotify.setRepeatMode(1);       // 0=off 1=track 2=context
 
+// Volume — Spotify Premium only, see the section below
+await spotify.setVolume(40);          // 0-100
+await spotify.volumeUp(step: 10);
+await spotify.toggleMute();
+final level = await spotify.getVolume();
+
 await spotify.disconnect();
 ```
 
@@ -270,6 +277,13 @@ case SpotifyAccessTokenEvent(:final accessToken, :final expiresIn, :final source
 | `seekTo(ms)` | Seek within the current track |
 | `setShuffle(bool)` | Enable/disable shuffle |
 | `setRepeatMode(int)` | `0`=off, `1`=track, `2`=context |
+| `setVolume(percent)` | Set volume `0`–`100` (clamped) — Premium, see [Volume](#volume) |
+| `getVolume()` | Read the active device's volume as `0`–`100` |
+| `volumeUp({step})` / `volumeDown({step})` | Step the volume, default 10 points |
+| `mute()` / `unmute()` / `toggleMute()` | Mute, remembering the previous level |
+| `isMuted` | Whether `mute()` is active (no network call) |
+| `lastKnownVolume` | Last volume set or read, or `null` (no network call) |
+| `setAccessToken(token)` | Supply the token the volume methods use — Android |
 | `onEvent` | `Stream<SpotifyEvent>` of all events |
 
 ### Events
@@ -288,6 +302,72 @@ case SpotifyAccessTokenEvent(:final accessToken, :final expiresIn, :final source
 | `SpotifyAuthException` | Token expired or auth failed |
 | `SpotifyConnectionException` | Connection attempt failed |
 | `SpotifyCommandException` | Playback command rejected by the SDK |
+| `SpotifyPremiumRequiredException` | Volume change rejected — account is not Premium |
+| `SpotifyNoActiveDeviceException` | No active Spotify device to set the volume on |
+| `SpotifyWebApiException` | Other Web API failure (`statusCode`, `message`) |
+
+---
+
+## Volume
+
+**The Spotify App Remote SDK has no volume API** — not on iOS, not on Android.
+So `setVolume` and friends go through the Spotify Web API
+(`PUT /me/player/volume`) against your account's active device. The plugin
+handles the request, the token, and the error mapping; you just call it.
+
+```dart
+await spotify.setVolume(40);              // 0-100, clamped
+final level = await spotify.getVolume();  // 0-100
+
+await spotify.volumeUp();                 // +10 points, capped at 100
+await spotify.volumeDown(step: 5);        // -5 points, floored at 0
+
+await spotify.mute();                     // remembers the current level
+await spotify.unmute();                   // restores it
+await spotify.toggleMute();
+```
+
+### Requirements
+
+| | |
+|---|---|
+| **Spotify Premium** | Free accounts get `SpotifyPremiumRequiredException` (HTTP 403) |
+| **Scopes** | `user-modify-playback-state` and `user-read-playback-state` — both are in the default scopes of `initializeSession` |
+| **An active device** | Start playback first, or pass `deviceId:`. Otherwise `SpotifyNoActiveDeviceException` |
+| **A valid token** | Cached automatically from `connectWithToken` and `SpotifyAccessTokenEvent`. If you restore a token from storage without connecting, call `setAccessToken` first |
+
+### Driving a slider
+
+`setVolume` coalesces rapid calls — one request is in flight at a time and
+intermediate values are dropped, so the last value always wins without
+tripping Spotify's rate limit. Call it straight from `onChanged`:
+
+```dart
+Slider(
+  value: _volume,
+  onChanged: (v) {
+    setState(() => _volume = v);
+    spotify.setVolume((v * 100).round());  // safe per-frame
+  },
+)
+```
+
+Use `lastKnownVolume` and `isMuted` to render UI without a network round-trip;
+they are updated by every successful call.
+
+### Handling failures
+
+```dart
+try {
+  await spotify.setVolume(60);
+} on SpotifyPremiumRequiredException {
+  // Free account — hide the volume UI
+} on SpotifyNoActiveDeviceException {
+  // Nothing is playing yet
+} on SpotifyAuthException {
+  await spotify.renewSession();
+}
+```
 
 ---
 
@@ -300,6 +380,10 @@ case SpotifyAccessTokenEvent(:final accessToken, :final expiresIn, :final source
   is silent if you use `initializeSession` or a stored token.
 - The Android `.aar` must be added manually — Spotify's terms prevent
   distribution through Maven Central.
+- **Volume requires Premium and a network round-trip.** The App Remote SDK
+  exposes no volume API on either platform, so the plugin uses the Spotify Web
+  API — which is Premium-only and needs an active device. It changes Spotify's
+  volume, not the device's system media volume.
 
 ---
 
